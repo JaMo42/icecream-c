@@ -110,6 +110,8 @@ where the the values use the formats specified in this section.
 
 `std::optional` is printed as `None` or `Some(value)`.
 
+The functions for these are only defined if their headers are already included when `icecream.h` is included.
+
 ### Custom types
 
 In C:

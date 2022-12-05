@@ -2,24 +2,11 @@
 #define IC_H
 
 #ifdef __cplusplus
-/* TODO: check if STL headers are included and selectively enable function
-         definitions instead of pushing all these includes onto the user. */
 #  include <cstdio>
 #  include <cstdlib>
 #  include <cerrno>
 #  include <cstring>
-#  include <string>
-#  include <vector>
-#  include <array>
-#  include <utility>
-#  if __cplusplus >= 201703L
-#    include <string_view>
-#    include <optional>
-#    include <tuple>
-#  endif
-#  if __cplusplus >= 202002L
-#    include <span>
-#  endif
+#  include <iterator> // std::begin, std::end
 #else
 #  include <stdio.h>
 #  include <stdlib.h>
@@ -245,15 +232,22 @@ IC__FUNC void ic_print_function (std::FILE *stream, bool b) {
   std::fprintf (stream, ic__value_color "%s", b ? "true" : "false");
 }
 
-#if __cplusplus >= 201703L
+#if (__cplusplus >= 201703L \
+     && (defined (_GLIBCXX_STRING_VIEW) \
+         || defined (_LIBCPP_STRING_VIEW) \
+         || defined (_STRING_VIEW_)))
 IC__FUNC void ic_print_function (std::FILE *stream, std::string_view str) {
   std::fprintf (stream, ic__value_color "%.*s", static_cast<int> (str.size ()), str.data ());
 }
 #endif
 
+#if (defined (_GLIBCXX_STRING) \
+     || defined (_LIBCPP_STRING) \
+     || defined (_STRING_))
 IC__FUNC void ic_print_function (std::FILE *stream, const std::string &str) {
   std::fprintf (stream, ic__value_color "%s", str.c_str ());
 }
+#endif
 
 template <class It>
 IC__FUNC void ic__print_container (std::FILE *stream, It begin, It end) {
@@ -267,28 +261,42 @@ IC__FUNC void ic__print_container (std::FILE *stream, It begin, It end) {
   std::fputs (ic__text_color "}", stream);
 }
 
+#if (defined (_GLIBCXX_VECTOR) \
+     || defined (_LIBCPP_VECTOR) \
+     || defined (_VECTOR_))
 template <class T>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::vector<T> &vec) {
   ic__print_container (stream, vec.begin (), vec.end ());
 }
+#endif
 
+#if (defined (_GLIBCXX_ARRAY) \
+     || defined (_LIBCPP_ARRAY) \
+     || defined (_ARRAY_))
 template <class T, std::size_t N>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::array<T, N> &arr) {
   ic__print_container (stream, arr.begin (), arr.end ());
 }
+#endif
 
 template <class T, std::size_t N>
 IC__FUNC void ic_print_function (std::FILE *stream, const T (&arr)[N]) {
   ic__print_container (stream, std::begin (arr), std::end (arr));
 }
 
-#if __cplusplus >= 202002L
+#if (__cplusplus >= 202002L \
+     && (defined (_GLIBCXX_SPAN) \
+         || defined (_LIBCPP_SPAN) \
+         || defined (_SPAN_)))
 template <class T, std::size_t E>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::span<T, E> &span) {
   ic__print_container (stream, span.begin (), span.end ());
 }
 #endif
 
+#if (defined (_GLIBCXX_UTILITY) \
+     || defined (_LIBCPP_UTILITY) \
+     || defined (_UTILITY_))
 template <class T1, class T2>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::pair<T1, T2> &pair) {
   std::fputs(ic__text_color "{", stream);
@@ -297,8 +305,12 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::pair<T1, T2> &pai
   ic_print_function (stream, pair.second);
   std::fputs (ic__text_color "}", stream);
 }
+#endif
 
-#if __cplusplus >= 201703L
+#if (__cplusplus >= 201703L \
+     && (defined (_GLIBCXX_TUPLE) \
+         || defined (_LIBCPP_TUPLE) \
+         || defined (_TUPLE_)))
 template <class... Ts>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::tuple<Ts...> &tuple) {
   bool first = true;
@@ -322,7 +334,10 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::tuple<Ts...> &tup
 #endif
 
 
-#if __cplusplus >= 201703L
+#if (__cplusplus >= 201703L \
+     && (defined (_GLIBCXX_OPTIONAL) \
+         || defined (_LIBCPP_OPTIONAL) \
+         || defined (_OPTIONAL_)))
 template <class T>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::optional<T> &opt) {
   if (opt.has_value ()) {
