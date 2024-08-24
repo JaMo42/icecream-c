@@ -87,16 +87,12 @@ Type | printf format specifier
 `int` | `%d`
 `long` | `%ld`
 `long long` | `%lld`
-|
 `float` | `%f`
 `double` | `%lf`
 `long double` | `%Lf`
-|
-`char` | `'%c'`
-`[const] char *` | `"%s"`
-|
+`char` | like `'%c'` (see below)
+`[const] char *` | like `"%s"` (see below)
 `[const] void *` | `%p`
-|
 `_Bool` (`bool`) | Prints `true`/`false`
 
 ### Characters and strings
