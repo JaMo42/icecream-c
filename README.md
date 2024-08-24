@@ -99,6 +99,15 @@ Type | printf format specifier
 |
 `_Bool` (`bool`) | Prints `true`/`false`
 
+### Characters and strings
+
+Unprintable characters (per `isprint`) are escaped:
+
+Characters | Representation | Notes
+---|---|---
+`\n` `\r` `\t` `\v` `\f` `\a` `\b` `\0` | are printed the same way they are on the left
+Any other character `isprint` returns 0 for | are printed as `\xHH` (for example 27 is `\x1B`) | For printing strings, characters with the 8th bit set are considered printable to preserve UTF-8 sequences.
+
 ### C++ types
 
 `std::string` and `std::string_view` are printed in the same way as c-strings.

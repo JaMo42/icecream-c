@@ -6,12 +6,15 @@
 #  include <cstdlib>
 #  include <cerrno>
 #  include <cstring>
-#  include <iterator> // std::begin, std::end
+#  include <cctype>
+#  include <iterator> /* std::begin, std::end */
 #else
 #  include <stdio.h>
 #  include <stdlib.h>
 #  include <errno.h>
 #  include <errno.h>
+#  include <ctype.h>
+#  include <stdbool.h>
 #endif
 
 #ifdef __TINYC__
@@ -166,40 +169,41 @@
     ) (IC_STREAM, v)
 #endif /* __cplusplus */
 
-#define ic__value(expr) ({                               \
-  ic__decltype (expr) ic__expr_value = (expr);           \
-  fputs (ic__text_color ic__str (expr) ": ", IC_STREAM); \
-  ic__print_value (ic__expr_value);                      \
-  fputs (ic__text_color ", ", IC_STREAM);                \
-  ic__expr_value;                                        \
+#define ic__value(expr) ({                              \
+  ic__decltype (expr) ic__expr_value = (expr);          \
+  fputs (IC_TEXT_COLOR ic__str (expr) ": ", IC_STREAM); \
+  ic__print_value (ic__expr_value);                     \
+  fputs (IC_TEXT_COLOR ", ", IC_STREAM);                \
+  ic__expr_value;                                       \
 })
 
-#define ic__last_value(expr) ({                          \
-  ic__decltype (expr) ic__expr_value = (expr);           \
-  fputs (ic__text_color ic__str (expr) ": ", IC_STREAM); \
-  ic__print_value (ic__expr_value);                      \
-  fputs ("\x1b[0m\n", IC_STREAM);                        \
-  ic__expr_value;                                        \
+#define ic__last_value(expr) ({                         \
+  ic__decltype (expr) ic__expr_value = (expr);          \
+  fputs (IC_TEXT_COLOR ic__str (expr) ": ", IC_STREAM); \
+  ic__print_value (ic__expr_value);                     \
+  fputs ("\x1b[0m\n", IC_STREAM);                       \
+  ic__expr_value;                                       \
 })
 
-#define ic__begin ({                        \
-  fputs (ic__text_color "ic| ", IC_STREAM); \
+#define ic__begin ({                       \
+  fputs (IC_TEXT_COLOR "ic| ", IC_STREAM); \
 })
 
 /**** Value printing ****/
 
-#define ic__value_color "\x1b[36m"
-#define ic__text_color "\x1b[90m"
+#define IC_VALUE_COLOR "\x1b[36m"
+#define IC_VALUE_SPECIAL_COLOR "\x1b[35m"
+#define IC_TEXT_COLOR "\x1b[90m"
 
 #ifdef __cplusplus
-#  define ic_print_function(name_, type_, fmt_)                  \
+#  define ic_print_function(name_, type_, fmt_)                        \
     IC__FUNC void ic_print_function (std::FILE *stream, type_ value) { \
-      std::fprintf (stream, ic__value_color fmt_, value);         \
+      std::fprintf (stream, IC_VALUE_COLOR fmt_, value);               \
     }
 #else /* __cplusplus */
-#  define ic_print_function(name_, type_, fmt_)                           \
+#  define ic_print_function(name_, type_, fmt_)                            \
     IC__FUNC void ic__cat(ic__print_, name_) (FILE *stream, type_ value) { \
-      fprintf (stream, ic__value_color fmt_, value);                       \
+      fprintf (stream, IC_VALUE_COLOR fmt_, value);                        \
     }
 #endif /* __cplusplus */
 /* Integers */
@@ -217,19 +221,112 @@ ic_print_function (s64_2, long long, "%lld")
 ic_print_function (f32, float, "%f")
 ic_print_function (f64, double, "%lf")
 ic_print_function (f_l, long double, "%Lf")
-/* Characters */
-ic_print_function (c, char, "'%c'")
-/* Strings */
-ic_print_function (str, char *, "\"%s\"")
-ic_print_function (cstr, const char *, "\"%s\"")
 /* Pointers */
 ic_print_function (ptr, void *, "%p")
 ic_print_function (cptr, const void *, "%p")
 #undef ic_print_function
 
+/** Just prints a character to the given stream without any styling.
+    Returns true if the character uses special representation.
+    If `is_string` is true, UTF-8 bytes are not escaped. */
+#ifdef __cplusplus
+IC__FUNC bool ic__format_char(char c, char *out) {
+#else
+IC__FUNC bool ic__format_char(char c, char out[static 4]) {
+#endif
+    if (isprint(c)) {
+        /*
+        Note: in the places where we use this function we end up just using the
+        character directly if this reutns false so we can ignore the contents
+        of the buffer for that case.
+
+        out[0] = c;
+        */
+        return false;
+    } else {
+        out[0] = '\\';
+        switch (c) {
+        case '\n': out[1] = 'n'; break;
+        case '\r': out[1] = 'r'; break;
+        case '\t': out[1] = 't'; break;
+        case '\v': out[1] = 'v'; break;
+        case '\f': out[1] = 'f'; break;
+        case '\a': out[1] = 'a'; break;
+        case '\b': out[1] = 'b'; break;
+        case '\0': out[1] = '0'; break;
+        default:
+            out[1] = 'x';
+            out[2] = "0123456789ABCDEF"[(unsigned char)c >> 4];
+            out[3] = "0123456789ABCDEF"[(unsigned char)c & 0xF];
+            break;
+        }
+        return true;
+    }
+}
+
+#ifdef __cplusplus
+IC__FUNC void ic_print_function (std::FILE *stream, char c) {
+#else
+IC__FUNC void ic__print_c(FILE *stream, char c) {
+#endif
+    char buf[5] = {0};
+    if (ic__format_char(c, buf)) {
+        fprintf(stream, IC_VALUE_SPECIAL_COLOR "'%s'", buf);
+    } else {
+        fprintf(stream, IC_VALUE_COLOR "'%c'", c);
+    }
+}
+
+#ifdef __cplusplus
+IC__FUNC void ic_print_function (std::FILE *stream, const char *sstr) {
+#else
+IC__FUNC void ic__print_cstr(FILE *stream, const char *sstr) {
+#endif
+    /*
+    Writing to the terminal mid-UTF-8 sequence will usually break that sequence
+    and cause incorrect output so want to write in chunks and not character by
+    character, espcially since we default to writing to stderr which is not
+    line-buffered (for stdout this should never be an issue).
+    */
+    const unsigned char *str = (const unsigned char *)sstr;
+    const unsigned char *seg_start = str;
+    char buf[5] = {0};
+    fputs(IC_VALUE_COLOR "\"", stream);
+    for (size_t i = 0; str[i]; ++i) {
+        if (isprint(str[i]) || str[i] & 0x80) {
+            continue;
+        } else {
+            fwrite(seg_start, 1, i - (seg_start - str), stream);
+            fputs(IC_VALUE_SPECIAL_COLOR, stream);
+            buf[2] = 0;
+            if (ic__format_char(str[i], buf)) {
+                fputs(buf, stream);
+            } else {
+                fputc(str[i], stream);
+            }
+            fputs(IC_VALUE_COLOR, stream);
+            seg_start = str + i + 1;
+        }
+    }
+    if (*seg_start) {
+        fputs((const char *)seg_start, stream);
+    }
+    fputc('"', stream);
+}
+
+#ifdef __cplusplus
+IC__FUNC void ic_print_function (std::FILE *stream, char *str) {
+    ic_print_function(stream, (const char *)str);
+}
+#else
+IC__FUNC void ic__print_str(FILE *stream, char *str) {
+    ic__print_cstr(stream, str);
+}
+#endif
+
 #ifdef __cplusplus
 IC__FUNC void ic_print_function (std::FILE *stream, bool b) {
-  std::fprintf (stream, ic__value_color "%s", b ? "true" : "false");
+  std::fprintf (stream, IC_VALUE_COLOR "%s", b ? "true" : "false");
 }
 
 #if (__cplusplus >= 201703L \
@@ -237,7 +334,7 @@ IC__FUNC void ic_print_function (std::FILE *stream, bool b) {
          || defined (_LIBCPP_STRING_VIEW) \
          || defined (_STRING_VIEW_)))
 IC__FUNC void ic_print_function (std::FILE *stream, std::string_view str) {
-  std::fprintf (stream, ic__value_color "%.*s", static_cast<int> (str.size ()), str.data ());
+  std::fprintf (stream, IC_VALUE_COLOR "%.*s", static_cast<int> (str.size ()), str.data ());
 }
 #endif
 
@@ -245,20 +342,20 @@ IC__FUNC void ic_print_function (std::FILE *stream, std::string_view str) {
      || defined (_LIBCPP_STRING) \
      || defined (_STRING_))
 IC__FUNC void ic_print_function (std::FILE *stream, const std::string &str) {
-  std::fprintf (stream, ic__value_color "%s", str.c_str ());
+  std::fprintf (stream, IC_VALUE_COLOR "%s", str.c_str ());
 }
 #endif
 
 template <class It>
 IC__FUNC void ic__print_container (std::FILE *stream, It begin, It end) {
-  std::fputs(ic__text_color "{", stream);
+  std::fputs(IC_TEXT_COLOR "{", stream);
   ic_print_function (stream, *begin);
   ++begin;
   for (; begin != end; ++begin) {
-    std::fputs (ic__text_color ", ", stream);
+    std::fputs (IC_TEXT_COLOR ", ", stream);
     ic_print_function (stream, *begin);
   }
-  std::fputs (ic__text_color "}", stream);
+  std::fputs (IC_TEXT_COLOR "}", stream);
 }
 
 #if (defined (_GLIBCXX_VECTOR) \
@@ -299,11 +396,11 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::span<T, E> &span)
      || defined (_UTILITY_))
 template <class T1, class T2>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::pair<T1, T2> &pair) {
-  std::fputs(ic__text_color "{", stream);
+  std::fputs(IC_TEXT_COLOR "{", stream);
   ic_print_function (stream, pair.first);
-  std::fputs (ic__text_color ", ", stream);
+  std::fputs (IC_TEXT_COLOR ", ", stream);
   ic_print_function (stream, pair.second);
-  std::fputs (ic__text_color "}", stream);
+  std::fputs (IC_TEXT_COLOR "}", stream);
 }
 #endif
 
@@ -318,18 +415,18 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::tuple<Ts...> &tup
     if (first) {
       first = false;
     } else {
-      std::fputs (ic__text_color ", ", stream);
+      std::fputs (IC_TEXT_COLOR ", ", stream);
     }
     ic_print_function (stream, v);
   };
-  std::fputs (ic__text_color "{", stream);
+  std::fputs (IC_TEXT_COLOR "{", stream);
   std::apply (
     [&](const Ts &...v) {
       (print_value (v), ...);
     },
     tuple
   );
-  std::fputs (ic__text_color "}", stream);
+  std::fputs (IC_TEXT_COLOR "}", stream);
 }
 #endif
 
@@ -341,11 +438,11 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::tuple<Ts...> &tup
 template <class T>
 IC__FUNC void ic_print_function (std::FILE *stream, const std::optional<T> &opt) {
   if (opt.has_value ()) {
-    fputs (ic__text_color "Some(", stream);
+    fputs (IC_TEXT_COLOR "Some(", stream);
     ic_print_function (stream, opt.value ());
-    fputs (ic__text_color ")", stream);
+    fputs (IC_TEXT_COLOR ")", stream);
   } else {
-    fputs (ic__value_color "None", stream);
+    fputs (IC_VALUE_COLOR "None", stream);
   }
 }
 #endif
@@ -353,15 +450,17 @@ IC__FUNC void ic_print_function (std::FILE *stream, const std::optional<T> &opt)
 template <class T>
 IC__FUNC void ic_print_function (std::FILE *stream, const T &v) {
   (void)v;
-  std::fputs (ic__value_color "?", stream);
+  std::fputs (IC_VALUE_COLOR "?", stream);
 }
+
 #else /* __cplusplus */
+
 IC__FUNC void ic__print_bool (FILE *stream, _Bool b) {
-  fprintf (stream, ic__value_color "%s", b ? "true" : "false");
+  fprintf (stream, IC_VALUE_COLOR "%s", b ? "true" : "false");
 }
 
 IC__FUNC void ic_print_unknown (FILE *stream, ...) {
-  fputs (ic__value_color "?", stream);
+  fputs (IC_VALUE_COLOR "?", stream);
 }
 #endif /* __cplusplus */
 
