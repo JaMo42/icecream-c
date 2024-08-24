@@ -62,6 +62,7 @@ IC_PERROR (what)
 
 Prints an error message in the form `file.c:123 in function_name: <what>: <description>`.
 The error description is generated using `strerror (errno)`.
+If `errno` is 0 nothing is printed.
 
 ---
 

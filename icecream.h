@@ -493,9 +493,11 @@ IC__FUNC void ic_print_unknown (FILE *stream, ...) {
            __PRETTY_FUNCTION__);                                  \
  } while (0)
 
-#define IC_PERROR(what) do {                                          \
-  fprintf (IC_STREAM, "%s:%d in %s: %s: %s\n",                        \
-           __FILE__, __LINE__, __FUNCTION__, what, strerror (errno)); \
+#define IC_PERROR(what) do {                                            \
+  if (0 != errno) {                                                     \
+    fprintf (IC_STREAM, "%s:%d in %s: %s: %s\n",                        \
+             __FILE__, __LINE__, __FUNCTION__, what, strerror (errno)); \
+  }                                                                     \
 } while (0)
 
 #endif /* IC_H */
@@ -505,7 +507,7 @@ IC__FUNC void ic_print_unknown (FILE *stream, ...) {
 This software is available under 2 licenses -- choose whichever you prefer.
 ------------------------------------------------------------------------------
 ALTERNATIVE A - MIT License
-Copyright (c) 2022 Jakob Mohrbacher
+Copyright (c) 2022-2024 Jakob Mohrbacher
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
 the Software without restriction, including without limitation the rights to
