@@ -288,6 +288,12 @@ IC__FUNC void ic__print_cstr(FILE *stream, const char *sstr) {
     character, espcially since we default to writing to stderr which is not
     line-buffered (for stdout this should never be an issue).
     */
+    if (!sstr) {
+        /* Printing a null pointer gives (nil) but a null string gives (null)?
+           This matches printf behavior but seems a bit weird to me. */
+        fputs(IC_VALUE_COLOR "(null)", stream);
+        return;
+    }
     const unsigned char *str = (const unsigned char *)sstr;
     const unsigned char *seg_start = str;
     char buf[5] = {0};
