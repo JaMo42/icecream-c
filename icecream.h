@@ -15,6 +15,7 @@
 #  include <errno.h>
 #  include <ctype.h>
 #  include <stdbool.h>
+#  include <string.h>
 #endif
 
 #ifdef __TINYC__
@@ -264,41 +265,30 @@ IC__FUNC bool ic__format_char(char c, char out[static 4]) {
     }
 }
 
+IC__FUNC void ic__print_string_impl(
 #ifdef __cplusplus
-IC__FUNC void ic_print_function (std::FILE *stream, char c) {
+    std::FILE *stream, size_t len, const char *sbegin
 #else
-IC__FUNC void ic__print_c(FILE *stream, char c) {
+    FILE *stream, size_t len, const char sbegin[static len]
 #endif
-    char buf[5] = {0};
-    if (ic__format_char(c, buf)) {
-        fprintf(stream, IC_VALUE_SPECIAL_COLOR "'%s'", buf);
-    } else {
-        fprintf(stream, IC_VALUE_COLOR "'%c'", c);
-    }
-}
-
-#ifdef __cplusplus
-IC__FUNC void ic_print_function (std::FILE *stream, const char *sstr) {
-#else
-IC__FUNC void ic__print_cstr(FILE *stream, const char *sstr) {
-#endif
+) {
     /*
     Writing to the terminal mid-UTF-8 sequence will usually break that sequence
     and cause incorrect output so want to write in chunks and not character by
     character, espcially since we default to writing to stderr which is not
     line-buffered (for stdout this should never be an issue).
     */
-    if (!sstr) {
+    if (!sbegin) {
         /* Printing a null pointer gives (nil) but a null string gives (null)?
            This matches printf behavior but seems a bit weird to me. */
         fputs(IC_VALUE_COLOR "(null)", stream);
         return;
     }
-    const unsigned char *str = (const unsigned char *)sstr;
+    const unsigned char *str = (const unsigned char *)sbegin;
     const unsigned char *seg_start = str;
     char buf[5] = {0};
     fputs(IC_VALUE_COLOR "\"", stream);
-    for (size_t i = 0; str[i]; ++i) {
+    for (size_t i = 0; i != len; ++i) {
         if (isprint(str[i]) || str[i] & 0x80) {
             continue;
         } else {
@@ -321,6 +311,28 @@ IC__FUNC void ic__print_cstr(FILE *stream, const char *sstr) {
 }
 
 #ifdef __cplusplus
+IC__FUNC void ic_print_function (std::FILE *stream, char c) {
+#else
+IC__FUNC void ic__print_c(FILE *stream, char c) {
+#endif
+    char buf[5] = {0};
+    if (ic__format_char(c, buf)) {
+        fprintf(stream, IC_VALUE_SPECIAL_COLOR "'%s'", buf);
+    } else {
+        fprintf(stream, IC_VALUE_COLOR "'%c'", c);
+    }
+}
+
+#ifdef __cplusplus
+IC__FUNC void ic_print_function (std::FILE *stream, const char *sstr) {
+#else
+IC__FUNC void ic__print_cstr(FILE *stream, const char *sstr) {
+#endif
+    size_t len = sstr ? strlen(sstr) : 0;
+    ic__print_string_impl(stream, len, sstr);
+}
+
+#ifdef __cplusplus
 IC__FUNC void ic_print_function (std::FILE *stream, char *str) {
     ic_print_function(stream, (const char *)str);
 }
@@ -340,7 +352,7 @@ IC__FUNC void ic_print_function (std::FILE *stream, bool b) {
          || defined (_LIBCPP_STRING_VIEW) \
          || defined (_STRING_VIEW_)))
 IC__FUNC void ic_print_function (std::FILE *stream, std::string_view str) {
-  std::fprintf (stream, IC_VALUE_COLOR "%.*s", static_cast<int> (str.size ()), str.data ());
+  ic__print_string_impl(stream, str.size(), str.data());
 }
 #endif
 
@@ -348,7 +360,7 @@ IC__FUNC void ic_print_function (std::FILE *stream, std::string_view str) {
      || defined (_LIBCPP_STRING) \
      || defined (_STRING_))
 IC__FUNC void ic_print_function (std::FILE *stream, const std::string &str) {
-  std::fprintf (stream, IC_VALUE_COLOR "%s", str.c_str ());
+  ic__print_string_impl(stream, str.size(), str.data());
 }
 #endif
 
