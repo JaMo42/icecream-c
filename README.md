@@ -50,9 +50,11 @@ Will also print a compile-time warning if used in GCC.
 
 ```
 IC_HERE ()
+IC_HERE ("message")
+IC_HERE ("format %d", 123)
 ```
 
-Prints the current location in the form `file.c:123 in "pretty_function_name"`.
+Prints the current location in the form `file.c:123 in "pretty_function_name"` or `file.c:123 in "pretty_function_name": <message>`.
 
 ---
 

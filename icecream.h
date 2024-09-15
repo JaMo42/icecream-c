@@ -486,11 +486,13 @@ IC__FUNC void ic_print_unknown (FILE *stream, ...) {
 #define ic__args_impl(first, ...) (ic__begin, ic__value (first)) ic__exprs (__VA_ARGS__)
 #define IC_ARGS(...) ic__args_warn_gcc ic__args_impl (__VA_ARGS__)
 
-#define IC_HERE() do {                                            \
-  ic__begin;                                                      \
-  fprintf (IC_STREAM,                                             \
-           __FILE__ ":" ic__str (__LINE__) " in \"%s\"\x1b[0m\n", \
-           __PRETTY_FUNCTION__);                                  \
+#define IC_HERE(...) do {                                           \
+  ic__begin;                                                        \
+  fprintf (IC_STREAM,                                               \
+           __FILE__ ":" ic__str (__LINE__) " in \"%s\"",            \
+           __PRETTY_FUNCTION__);                                    \
+  __VA_OPT__(fprintf (IC_STREAM, ": " IC_VALUE_COLOR __VA_ARGS__)); \
+  fputs("\x1b[m\n", IC_STREAM);                                     \
  } while (0)
 
 #define IC_PERROR(what) do {                                            \
