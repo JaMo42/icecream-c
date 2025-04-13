@@ -288,7 +288,8 @@ IC__FUNC void ic__print_string_impl(
     const unsigned char *seg_start = str;
     char buf[5] = {0};
     fputs(IC_VALUE_COLOR "\"", stream);
-    for (size_t i = 0; i != len; ++i) {
+    size_t i;
+    for (i = 0; i != len; ++i) {
         if (isprint(str[i]) || str[i] & 0x80) {
             continue;
         } else {
@@ -305,7 +306,7 @@ IC__FUNC void ic__print_string_impl(
         }
     }
     if (*seg_start) {
-        fputs((const char *)seg_start, stream);
+        fwrite(seg_start, 1, i - (seg_start - str), stream);
     }
     fputc('"', stream);
 }
