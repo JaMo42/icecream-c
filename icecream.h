@@ -227,15 +227,14 @@ ic_print_function (ptr, void *, "%p")
 ic_print_function (cptr, const void *, "%p")
 #undef ic_print_function
 
-/** Just prints a character to the given stream without any styling.
-    Returns true if the character uses special representation.
-    If `is_string` is true, UTF-8 bytes are not escaped. */
+/** Formats a given character into the given buffer without any styling.
+    Returns true if the character uses special representation. */
 #ifdef __cplusplus
 IC__FUNC bool ic__format_char(char c, char *out) {
 #else
 IC__FUNC bool ic__format_char(char c, char out[static 4]) {
 #endif
-    if (isprint(c)) {
+    if (isprint(c) && c != '\\') {
         /*
         Note: in the places where we use this function we end up just using the
         character directly if this reutns false so we can ignore the contents
@@ -247,6 +246,7 @@ IC__FUNC bool ic__format_char(char c, char out[static 4]) {
     } else {
         out[0] = '\\';
         switch (c) {
+        case '\\': out[1] = '\\'; break;
         case '\n': out[1] = 'n'; break;
         case '\r': out[1] = 'r'; break;
         case '\t': out[1] = 't'; break;
@@ -275,7 +275,7 @@ IC__FUNC void ic__print_string_impl(
     /*
     Writing to the terminal mid-UTF-8 sequence will usually break that sequence
     and cause incorrect output so want to write in chunks and not character by
-    character, espcially since we default to writing to stderr which is not
+    character, especially since we default to writing to stderr which is not
     line-buffered (for stdout this should never be an issue).
     */
     if (!sbegin) {
@@ -284,7 +284,7 @@ IC__FUNC void ic__print_string_impl(
         fputs(IC_VALUE_COLOR "(null)", stream);
         return;
     }
-    const unsigned char *str = (const unsigned char *)sbegin;
+    const unsigned char *const str = (const unsigned char *)sbegin;
     const unsigned char *seg_start = str;
     char buf[5] = {0};
     fputs(IC_VALUE_COLOR "\"", stream);
@@ -293,10 +293,10 @@ IC__FUNC void ic__print_string_impl(
         if (isprint(str[i]) || str[i] & 0x80) {
             continue;
         } else {
-            fwrite(seg_start, 1, i - (seg_start - str), stream);
+            fwrite(seg_start, 1, i - (size_t)(seg_start - str), stream);
             fputs(IC_VALUE_SPECIAL_COLOR, stream);
             buf[2] = 0;
-            if (ic__format_char(str[i], buf)) {
+            if (ic__format_char(sbegin[i], buf)) {
                 fputs(buf, stream);
             } else {
                 fputc(str[i], stream);
