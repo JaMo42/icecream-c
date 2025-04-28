@@ -306,7 +306,7 @@ IC__FUNC void ic__print_string_impl(
         }
     }
     if (*seg_start) {
-        fwrite(seg_start, 1, i - (seg_start - str), stream);
+        fwrite(seg_start, 1, i - (size_t)(seg_start - str), stream);
     }
     fputc('"', stream);
 }
